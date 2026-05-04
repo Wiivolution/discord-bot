@@ -39,7 +39,7 @@ async def on_app_command_error(interaction, error):
     channel = bot.get_channel(BOT_ERROR_CHANNEL_ID)
 
     if channel:
-        await channel.send(f"Error in /{interaction.command.name}:\n```{error}```")
+        await channel.send(f"Error in `/{interaction.command.name}`:\n```{error}```")
     if interaction.response.is_done():
         await interaction.followup.send("An error has occured. Please notify Aep of this error immediately.", ephemeral=True)
     else:
