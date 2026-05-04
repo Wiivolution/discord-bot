@@ -37,7 +37,7 @@ async def check_staff(interaction: discord.Interaction, user: discord.User):
         if role in user.roles:
             await interaction.response.send_message("You cannot perform this action on this user.", ephemeral=True)
             return True
-    return False
+    return False  
 
 async def post_action_log(interaction: discord.Interaction, author: discord.User, target: discord.User, action: ActionType, channel: discord.Channel, reason: str = None):
     channel = interaction.guild.get_channel(MOD_LOGS_CHANNEL_ID)

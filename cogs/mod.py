@@ -75,7 +75,10 @@ class Mod(commands.Cog):
                 color=discord.Color.red()
             )
 
-            await user.send(embeds=[information_embed])
+            try:
+                await user.send(embeds=[information_embed])
+            except discord.Forbidden:
+                pass # user disabled dms or left
         
         try:
             await interaction.guild.kick(user, reason=reason)
@@ -107,7 +110,10 @@ class Mod(commands.Cog):
                 color=discord.Color.dark_red()
             )
 
-            await user.send(embeds=[information_embed, appeals_embed])
+            try:
+                await user.send(embeds=[information_embed, appeals_embed])
+            except discord.Forbidden:
+                pass # user disabled dms or left
         
         try:
             await interaction.guild.ban(user, reason=reason, delete_message_days=remove_messages)
