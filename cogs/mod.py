@@ -92,7 +92,7 @@ class Mod(commands.Cog):
         try:
             await interaction.guild.fetch_ban(user)
         except discord.errors.NotFound:
-            return await interaction.response.send_message(f"{user} ({user.id}) is not banned!")
+            return await interaction.response.send_message(f"{user} ({user.id}) is not banned!", ephemeral=True)
         
         try:
             await interaction.guild.unban(user, reason=reason)
