@@ -11,6 +11,8 @@ STAFF_ROLE_ID =
 
 # CHANNEL IDs
 BOT_ERROR_CHANNEL_ID = 
+MOD_LOGS_CHANNEL_ID = 
+SERVER_LOGS_CHANNEL_ID = 
 
 # DISCORD LINKS (for modmail)
 DISCORD_USER_URL = "https://discord.com/users/"

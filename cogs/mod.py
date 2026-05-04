@@ -5,10 +5,13 @@ from discord.utils import format_dt
 from discord.ext import commands
 
 from utils.helpers import check_staff
+from utils.helpers import post_action_log
+from utils.enums import ActionType
 
 from constants import MODMAIL_USER_ID
 from constants import DISCORD_OAUTH2_LINK
 from constants import DISCORD_USER_URL
+from constants import MOD_LOGS_CHANNEL_ID
 
 class Mod(commands.Cog):
     def __init__(self, bot):
@@ -52,7 +55,37 @@ class Mod(commands.Cog):
         embed.title = f"Info for {'bot' if user.bot else 'user'} {user}"
         embed.set_thumbnail(url=user.display_avatar.url)
         await interaction.response.send_message(embed=embed, ephemeral=ephemeral)
-    
+
+    @app_commands.default_permissions(kick_members=True)
+    @app_commands.guild_only()
+    @app_commands.describe(user="The user to kick", reason="Reason for the kick", silent="Opt out of notifying the user of the kick via DM")
+    @app_commands.command(name="kick", description="Kick a user, and send them a direct message with a reason")
+    async def kick_user_command(self, interaction: discord.Interaction, user: discord.Member, reason: str = None, silent: bool = False): # a kick needs them to be in the server, so we use discord.Member instead of discord.User
+        if await check_staff(interaction, user):
+            return
+        
+        if not isinstance(user, discord.Member):
+            await interaction.response.send_message(f"{user.mention} ({user.id}) is not in the server!", ephemeral=True)
+            return
+        
+        if not silent:
+            information_embed = discord.Embed(
+                title=f"You were kicked from {interaction.guild.name}.",
+                description=f"Reason: {reason}\n\nYou are able to rejoin the server, however please make sure to read the rules before participating again.",
+                color=discord.Color.red()
+            )
+
+            await user.send(embeds=[information_embed])
+        
+        try:
+            await interaction.guild.kick(user, reason=reason)
+        except discord.errors.Forbidden as forbidden_to_kick_exception:
+            await interaction.response.send_message(f"Failed to kick member: {forbidden_to_kick_exception}", ephemeral=True)
+            return
+        
+        await interaction.response.send_message(f"{user} is now gone.")
+        await post_action_log(interaction, interaction.user, user, ActionType.Kick, MOD_LOGS_CHANNEL_ID, reason=reason)
+
     @app_commands.default_permissions(ban_members=True)
     @app_commands.guild_only()
     @app_commands.describe(user="The user to ban", reason="Reason for the ban", remove_messages="Number of days of messages to delete (up to 7 max)", silent="Opt out of notifying the user of the ban via DM")
@@ -83,6 +116,7 @@ class Mod(commands.Cog):
             return
         
         await interaction.response.send_message(f"{user} is now banned.")
+        await post_action_log(interaction, interaction.user, user, ActionType.Ban, MOD_LOGS_CHANNEL_ID, reason=reason)
 
     @app_commands.default_permissions(ban_members=True)
     @app_commands.guild_only()
@@ -101,6 +135,7 @@ class Mod(commands.Cog):
             return
 
         await interaction.response.send_message(f"{user} is now unbanned.")
+        await post_action_log(interaction, interaction.user, user, ActionType.Unban, MOD_LOGS_CHANNEL_ID, reason=reason)
 
 async def setup(bot):
     await bot.add_cog(Mod(bot))
