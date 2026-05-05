@@ -1,13 +1,19 @@
 import discord
 import asyncio
+
 from discord.ext import commands
+from discord.utils import format_dt
 
 from constants import TOKEN
 from constants import OWNER_USER_ID
 from constants import BOT_ERROR_CHANNEL_ID
+from constants import SERVER_LOGS_CHANNEL_ID
 from constants import BOT_DEVELOPERS
 
+from utils.enums import ServerAction
+
 from utils.helpers import AppNotBotDeveloper
+from utils.helpers import post_server_log
 
 intents = discord.Intents.all()
 allowed_mentions = discord.AllowedMentions(everyone=False, roles=False)
@@ -28,6 +34,20 @@ async def load_extensions():
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user} ({bot.user.id})")
+
+@bot.event
+async def on_member_join(member: discord.Member):
+    await post_server_log(bot=bot, serverAction=ServerAction.Join, channel=SERVER_LOGS_CHANNEL_ID, color=discord.Color.gold(), target=member, note=f"Created: {member.created_at} ({format_dt(member.created_at)}) ({format_dt(member.created_at, style='R')})")
+
+@bot.event
+async def on_member_remove(member: discord.Member):
+    await post_server_log(bot=bot, serverAction=ServerAction.Leave, channel=SERVER_LOGS_CHANNEL_ID, color=discord.Color.gold(), target=member, note=f"Created: {member.created_at} ({format_dt(member.created_at)}) ({format_dt(member.created_at, style='R')})")
+
+@bot.event
+async def on_error(event, *args, **kwargs):
+    print(f"Error in {event}:")
+    import traceback
+    traceback.print_exc()
 
 @bot.tree.error
 async def on_app_command_error(interaction, error):

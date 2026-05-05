@@ -87,7 +87,7 @@ class Mod(commands.Cog):
             return
         
         await interaction.response.send_message(f"{user} is now gone.")
-        await post_action_log(interaction, interaction.user, user, ActionType.Kick, MOD_LOGS_CHANNEL_ID, reason=reason)
+        await post_action_log(interaction=interaction, author=interaction.user, target=user, action=ActionType.Kick, channel=MOD_LOGS_CHANNEL_ID, reason=reason, color=discord.Color.red())
 
     @app_commands.default_permissions(ban_members=True)
     @app_commands.guild_only()
@@ -122,7 +122,7 @@ class Mod(commands.Cog):
             return
         
         await interaction.response.send_message(f"{user} is now banned.")
-        await post_action_log(interaction, interaction.user, user, ActionType.Ban, MOD_LOGS_CHANNEL_ID, reason=reason)
+        await post_action_log(interaction=interaction, author=interaction.user, target=user, action=ActionType.Ban, channel=MOD_LOGS_CHANNEL_ID, reason=reason, color=discord.Color.red())
 
     @app_commands.default_permissions(ban_members=True)
     @app_commands.guild_only()
@@ -141,7 +141,7 @@ class Mod(commands.Cog):
             return
 
         await interaction.response.send_message(f"{user} is now unbanned.")
-        await post_action_log(interaction, interaction.user, user, ActionType.Unban, MOD_LOGS_CHANNEL_ID, reason=reason)
+        await post_action_log(interaction=interaction, author=interaction.user, target=user, action=ActionType.Unban, channel=MOD_LOGS_CHANNEL_ID, reason=reason, color=discord.Color(0xFFFFFF))
 
 async def setup(bot):
     await bot.add_cog(Mod(bot))

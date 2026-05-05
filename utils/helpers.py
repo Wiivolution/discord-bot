@@ -6,9 +6,9 @@ from discord.ext import commands
 
 from constants import BOT_DEVELOPERS
 from constants import STAFF_ROLE_ID
-from constants import MOD_LOGS_CHANNEL_ID
 
 from utils.enums import ActionType
+from utils.enums import ServerAction
 
 class AppNotBotDeveloper(app_commands.CheckFailure):
     message: str
@@ -21,6 +21,15 @@ def get_string_by_action_type(actionType: ActionType):
             return "Kicked"
         case ActionType.Unban:
             return "Unbanned"
+        case _:
+            return "(Unknown Action Type)"
+
+def get_string_by_server_action(serverAction: ServerAction):
+    match serverAction:
+        case ServerAction.Join:
+            return "Member Joined"
+        case ServerAction.Leave:
+            return "Member Left"
         case _:
             return "(Unknown Action Type)"
 
@@ -39,17 +48,33 @@ async def check_staff(interaction: discord.Interaction, user: discord.User):
             return True
     return False  
 
-async def post_action_log(interaction: discord.Interaction, author: discord.User, target: discord.User, action: ActionType, channel: discord.Channel, reason: str = None):
-    channel = interaction.guild.get_channel(MOD_LOGS_CHANNEL_ID)
+async def post_action_log(interaction: discord.Interaction, target: discord.User, action: ActionType, channel: discord.Channel, color: discord.Color, author: discord.User = None, reason: str = None):
+    channel = interaction.guild.get_channel(channel)
 
     embed = discord.Embed(
         title=f"Member {get_string_by_action_type(action)}",
         description=f"Reason: {reason}",
-        color=discord.Color.red()
+        color=color
     )
 
-    embed.add_field(name="User", value=f"{target.mention} (`{target.id}`)", inline=True)   
-    embed.add_field(name="Author", value=f"{author.mention} (`{author.id}`)", inline=True)    
+    embed.add_field(name="User", value=f"{target.mention} (`{target.id}`)", inline=True) 
+    if author is not None:
+        embed.add_field(name="Author", value=f"{author.mention} (`{author.id}`)", inline=True)    
     embed.set_thumbnail(url=target.display_avatar.url)
+
+    await channel.send(embeds=[embed])
+
+async def post_server_log(bot: commands.Bot, serverAction: ServerAction, channel: discord.Channel, color: discord.Color, target: discord.User = None, note: str = None):
+    channel = bot.get_channel(channel)
+
+    embed = discord.Embed(
+        title=f"{get_string_by_server_action(serverAction)}",
+        description=f"Note: {note}",
+        color=color
+    )
+    
+    if target is not None:
+        embed.add_field(name="User", value=f"{target.mention} (`{target.id}`)", inline=True) 
+        embed.set_thumbnail(url=target.display_avatar.url)
 
     await channel.send(embeds=[embed])

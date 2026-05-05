@@ -4,3 +4,7 @@ class ActionType(Enum):
     Ban = auto()
     Kick = auto()
     Unban = auto()
+
+class ServerAction(Enum):
+    Join = auto()
+    Leave = auto()
