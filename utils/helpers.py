@@ -57,9 +57,9 @@ async def post_action_log(interaction: discord.Interaction, target: discord.User
         color=color
     )
 
-    embed.add_field(name="User", value=f"{target.mention} (`{target.id}`)", inline=True) 
+    embed.add_field(name="User", value=f"{target.mention} (`{target.name}`) (`{target.id}`)", inline=True) 
     if author is not None:
-        embed.add_field(name="Author", value=f"{author.mention} (`{author.id}`)", inline=True)    
+        embed.add_field(name="Author", value=f"{author.mention} (`{author.name}`) (`{author.id}`)", inline=True)    
     embed.set_thumbnail(url=target.display_avatar.url)
 
     await channel.send(embeds=[embed])
@@ -74,7 +74,7 @@ async def post_server_log(bot: commands.Bot, serverAction: ServerAction, channel
     )
     
     if target is not None:
-        embed.add_field(name="User", value=f"{target.mention} (`{target.id}`)", inline=True) 
+        embed.add_field(name="User", value=f"{target.mention} (`{target.name}`) (`{target.id}`)", inline=True) 
         embed.set_thumbnail(url=target.display_avatar.url)
 
     await channel.send(embeds=[embed])
