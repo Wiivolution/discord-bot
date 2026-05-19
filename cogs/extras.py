@@ -3,6 +3,8 @@ import sys
 from discord.ext import commands
 from discord import app_commands, TextChannel, __version__ as discordpy_version
 
+from utils.helpers import is_staff
+
 python_version = sys.version.split()[0]
 
 class Extras(commands.Cog):
@@ -21,6 +23,16 @@ class Extras(commands.Cog):
         message = f'''
         Python {python_version}\ndiscord.py {discordpy_version}'''
         await interaction.response.send_message(message)
+
+    @app_commands.guild_only()
+    @app_commands.describe(channel="The channel to send the message in, if not the current channge", message="The message to send")
+    @app_commands.command(name="speak", description="Send a message as the bot")
+    @is_staff()
+    async def speak_command(self, interaction: discord.Interaction, message: str, channel: discord.TextChannel = None):
+        if channel == None:
+            channel = interaction.channel
+        await channel.send(message)
+        await interaction.response.send_message(f"Message sent to channel {channel.mention}!", ephemeral=True) # ideal to respond to the interaction or else we might have issues
 
 async def setup(bot):
     await bot.add_cog(Extras(bot))

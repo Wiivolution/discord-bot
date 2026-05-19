@@ -13,6 +13,9 @@ from utils.enums import ServerAction
 class AppNotBotDeveloper(app_commands.CheckFailure):
     message: str
 
+class AppNotStaffCheck(app_commands.CheckFailure):
+    message: str
+
 def get_string_by_action_type(actionType: ActionType):
     match actionType:
         case ActionType.Ban:
@@ -40,7 +43,17 @@ def is_bot_developer():
         raise AppNotBotDeveloper("You are not a bot developer, and therefore can't use this command.")
     return app_commands.check(predicate)
 
-async def check_staff(interaction: discord.Interaction, user: discord.User):
+def is_staff():
+    async def predicate(interaction: discord.Interaction) -> bool:
+        user = interaction.user
+        role = interaction.guild.get_role(STAFF_ROLE_ID)
+        if isinstance(user, discord.Member):
+            if role in user.roles:
+                return True
+        raise AppNotStaffCheck("You are not staff, and therefore can't use this command.")
+    return app_commands.check(predicate)
+
+async def check_staff_target(interaction: discord.Interaction, user: discord.User):
     role = interaction.guild.get_role(STAFF_ROLE_ID)
     if isinstance(user, discord.Member):
         if role in user.roles:
@@ -48,7 +61,7 @@ async def check_staff(interaction: discord.Interaction, user: discord.User):
             return True
     return False  
 
-async def post_action_log(interaction: discord.Interaction, target: discord.User, action: ActionType, channel: discord.Channel, color: discord.Color, author: discord.User = None, reason: str = None):
+async def post_action_log(interaction: discord.Interaction, target: discord.User, action: ActionType, channel: discord.TextChannel, color: discord.Color, author: discord.User = None, reason: str = None):
     channel = interaction.guild.get_channel(channel)
 
     embed = discord.Embed(
@@ -64,7 +77,7 @@ async def post_action_log(interaction: discord.Interaction, target: discord.User
 
     await channel.send(embeds=[embed])
 
-async def post_server_log(bot: commands.Bot, serverAction: ServerAction, channel: discord.Channel, color: discord.Color, target: discord.User = None, note: str = None):
+async def post_server_log(bot: commands.Bot, serverAction: ServerAction, channel: discord.TextChannel, color: discord.Color, target: discord.User = None, note: str = None):
     channel = bot.get_channel(channel)
 
     embed = discord.Embed(

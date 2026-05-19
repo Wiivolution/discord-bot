@@ -4,7 +4,7 @@ from discord import app_commands
 from discord.utils import format_dt
 from discord.ext import commands
 
-from utils.helpers import check_staff
+from utils.helpers import check_staff_target
 from utils.helpers import post_action_log
 from utils.enums import ActionType
 
@@ -61,7 +61,7 @@ class Mod(commands.Cog):
     @app_commands.describe(user="The user to kick", reason="Reason for the kick", silent="Opt out of notifying the user of the kick via DM")
     @app_commands.command(name="kick", description="Kick a user, and send them a direct message with a reason")
     async def kick_user_command(self, interaction: discord.Interaction, user: discord.Member, reason: str = None, silent: bool = False): # a kick needs them to be in the server, so we use discord.Member instead of discord.User
-        if await check_staff(interaction, user):
+        if await check_staff_target(interaction, user):
             return
         
         if not isinstance(user, discord.Member):
@@ -94,7 +94,7 @@ class Mod(commands.Cog):
     @app_commands.describe(user="The user to ban", reason="Reason for the ban", remove_messages="Number of days of messages to delete (up to 7 max)", silent="Opt out of notifying the user of the ban via DM")
     @app_commands.command(name="ban", description="Ban a user, and send them a direct message with a reason")
     async def ban_user_command(self, interaction: discord.Interaction, user: discord.User, reason: str = None, remove_messages: app_commands.Range[int, 0, 7] = 0, silent: bool = False):
-        if await check_staff(interaction, user):
+        if await check_staff_target(interaction, user):
             return
 
         if isinstance(user, discord.Member) and not silent:

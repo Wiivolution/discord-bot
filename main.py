@@ -13,6 +13,7 @@ from constants import BOT_DEVELOPERS
 from utils.enums import ServerAction
 
 from utils.helpers import AppNotBotDeveloper
+from utils.helpers import AppNotStaffCheck
 from utils.helpers import post_server_log
 
 intents = discord.Intents.all()
@@ -52,7 +53,7 @@ async def on_error(event, *args, **kwargs):
 @bot.tree.error
 async def on_app_command_error(interaction, error):
 
-    if isinstance(error, AppNotBotDeveloper):
+    if isinstance(error, AppNotBotDeveloper) or isinstance(error, AppNotStaffCheck):
         await interaction.response.send_message(str(error), ephemeral=True)
         return # return so we don't continue for no reason
 
