@@ -9,6 +9,7 @@ from constants import STAFF_ROLE_ID
 
 from utils.enums import ActionType
 from utils.enums import ServerAction
+from utils.enums import MessageLog
 
 class AppNotBotDeveloper(app_commands.CheckFailure):
     message: str
@@ -16,7 +17,7 @@ class AppNotBotDeveloper(app_commands.CheckFailure):
 class AppNotStaffCheck(app_commands.CheckFailure):
     message: str
 
-def get_string_by_action_type(actionType: ActionType):
+def get_string_by_action_type(actionType: ActionType) -> str:
     match actionType:
         case ActionType.Ban:
             return "Banned"
@@ -27,12 +28,21 @@ def get_string_by_action_type(actionType: ActionType):
         case _:
             return "(Unknown Action Type)"
 
-def get_string_by_server_action(serverAction: ServerAction):
+def get_string_by_server_action(serverAction: ServerAction) -> str:
     match serverAction:
         case ServerAction.Join:
             return "Member Joined"
         case ServerAction.Leave:
             return "Member Left"
+        case _:
+            return "(Unknown Action Type)"
+
+def get_string_by_message_log(messageLog: MessageLog) -> str:
+    match messageLog:
+        case MessageLog.Delete:
+            return "Message Deleted"
+        case MessageLog.Edit:
+            return "Message Edited"
         case _:
             return "(Unknown Action Type)"
 
@@ -89,5 +99,32 @@ async def post_server_log(bot: commands.Bot, serverAction: ServerAction, channel
     if target is not None:
         embed.add_field(name="User", value=f"{target.mention} (`{target.name}`) (`{target.id}`)", inline=True) 
         embed.set_thumbnail(url=target.display_avatar.url)
+
+    await channel.send(embeds=[embed])
+
+async def post_message_log(bot: commands.Bot, messageLog: MessageLog, channel: discord.TextChannel, color: discord.Color, message: discord.Message, new_message: discord.Message = None, note: str = None):
+    channel = bot.get_channel(channel)
+
+    embed = discord.Embed(
+        title=f"{get_string_by_message_log(messageLog)}",
+        description=f"Note: {note}",
+        color=color
+    )
+
+    author = message.author
+
+    embed.add_field(name="Author", value=f"{author.mention} (`{author.name}`) (`{author.id}`)", inline=False)
+    
+    if not new_message:
+        embed.add_field(name="Message Content", value=f"{message.content}", inline=False)
+    else:
+        embed.add_field(name="Old Message Content", value=f"{message.content}", inline=True)
+        embed.add_field(name="New Message Content", value=f"{new_message.content}", inline=True)
+    
+    embed.add_field(name="Message Date", value=format_dt(message.created_at), inline=False)
+
+    embed.add_field(name="Message Channel", value=message.channel.mention, inline=True)
+    embed.add_field(name="Message Link", value=f"[Jump to message]({message.jump_url})", inline=True)
+    embed.add_field(name="Message ID", value=f"`{message.id}`", inline=True)
 
     await channel.send(embeds=[embed])

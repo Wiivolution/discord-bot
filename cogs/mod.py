@@ -18,9 +18,41 @@ class Mod(commands.Cog):
         self.bot = bot
         self._last_member = None
 
-    @app_commands.command(name="userinfo", description="Get user info for a specific user")
-    async def user_info_command(self, interaction: discord.Interaction, user: discord.User, ephemeral: bool = False):
-        if not interaction.user.guild_permissions.ban_members and user.id != interaction.user.id: # allow users to use the command on themselves, but only allow staff to use it on other users
+    @app_commands.default_permissions(manage_messages=True)
+    @app_commands.guild_only()
+    @app_commands.describe(amount="The amount of messages to purge", channel="The channel to purge messages in, if not the current one")
+    @app_commands.command(name="purge", description="Purge a certain amount of the latest messages from a channel. Pinned messages are ignored.")
+    async def purge_command(self, interaction: discord.Interaction, amount: int, channel: discord.TextChannel = None):
+        await interaction.response.defer(ephemeral=True)
+        if channel == None:
+            channel = interaction.channel
+        
+        if not channel.permissions_for(interaction.user).manage_messages:
+            await interaction.followup.send("You do not have the Manage Messages permission in this channel, and therefore can't use this.", ephemeral=True)
+            return
+
+        checks = [lambda m: not m.pinned]
+
+        def check(message):
+            return all(c(message) for c in checks)
+
+        try:
+            deleted = await channel.purge(limit=amount,
+                                          check=check, reason=f"Purged by {interaction.user}")
+        except discord.HTTPException as exc:
+            return await ctx.send(f"Deleting messages failed {exc}")
+        if deleted:
+            # eventually log here something.
+            await interaction.followup.send(f"Successfully deleted {len(deleted)} messages in {channel.mention}!")
+        else:
+            await interaction.followup.send("No messages were deleted.", ephemeral=True)
+
+    @app_commands.guild_only()
+    @app_commands.command(name="user-info", description="Get user info for a specific user")
+    async def user_info_command(self, interaction: discord.Interaction, user: discord.User = None, ephemeral: bool = False):
+        if user == None: # why not
+            user = interaction.user
+        if not interaction.user.guild_permissions.ban_members and user.id != interaction.user.id: # allow users to use the command on themselves, but only allow staff to use it on other users (ban reasons are revealed, therefore ban members is required to use on anyone)
             await interaction.response.send_message("This commmand can only be used on yourself.", ephemeral=True)
             return
         guild = interaction.guild

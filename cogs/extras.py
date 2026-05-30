@@ -1,7 +1,7 @@
 import discord
 import sys
 from discord.ext import commands
-from discord import app_commands, TextChannel, __version__ as discordpy_version
+from discord import app_commands, TextChannel
 
 from utils.helpers import is_staff
 
@@ -17,12 +17,11 @@ class Extras(commands.Cog):
     async def sync_app_commands(self, ctx):
         await ctx.bot.tree.sync()
         await ctx.send("Synced app commands successfully!")
-    
-    @app_commands.command(name="env",  description="Information about the environment the bot is running under")
-    async def env_command(self, interaction: discord.Interaction):
-        message = f'''
-        Python {python_version}\ndiscord.py {discordpy_version}'''
-        await interaction.response.send_message(message)
+
+    @commands.command(name="testcommand")
+    @commands.is_owner()
+    async def test_prefix_command(self, ctx):
+        await ctx.send("Prefix commands work!")
 
     @app_commands.guild_only()
     @app_commands.describe(channel="The channel to send the message in, if not the current channge", message="The message to send")

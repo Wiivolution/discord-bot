@@ -8,3 +8,7 @@ class ActionType(Enum):
 class ServerAction(Enum):
     Join = auto()
     Leave = auto()
+
+class MessageLog(Enum):
+    Delete = auto()
+    Edit = auto()

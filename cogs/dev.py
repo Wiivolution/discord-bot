@@ -1,10 +1,12 @@
 import discord
 import sys
-from discord import app_commands
+from discord import app_commands, __version__ as discordpy_version
 from discord.utils import format_dt
 from discord.ext import commands
 
 from utils.helpers import is_bot_developer
+
+python_version = sys.version.split()[0]
 
 class Dev(commands.GroupCog):
     def __init__(self, bot):
@@ -48,6 +50,12 @@ class Dev(commands.GroupCog):
             await interaction.response.send_message(
                 "Profile picture changed successfully.", ephemeral=True
             )
+    
+    @app_commands.command(name="env",  description="Information about the environment the bot is running under")
+    async def env_command(self, interaction: discord.Interaction):
+        message = f'''
+        Python {python_version}\ndiscord.py {discordpy_version}'''
+        await interaction.response.send_message(message, ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(Dev(bot))
