@@ -40,7 +40,7 @@ class Mod(commands.Cog):
             deleted = await channel.purge(limit=amount,
                                           check=check, reason=f"Purged by {interaction.user}")
         except discord.HTTPException as exc:
-            return await ctx.send(f"Deleting messages failed {exc}")
+            return await interaction.followup.send(f"Deleting messages failed {exc}", ephemeral=True)
         if deleted:
             # eventually log here something.
             await interaction.followup.send(f"Successfully deleted {len(deleted)} messages in {channel.mention}!")
