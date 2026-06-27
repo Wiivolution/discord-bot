@@ -1,10 +1,11 @@
 # general lib imports
-import discord
 import asyncio
 import traceback
 import io
 from datetime import datetime
 
+import discord
+from discord.app_commands.errors import CommandInvokeError
 from discord.ext import commands
 from discord.utils import format_dt
 
@@ -91,19 +92,33 @@ async def on_error(event, *args, **kwargs):
             await channel.send(f"Error in {event}", file=file)
             
 @bot.tree.error
-async def on_app_command_error(interaction, error):
-    if isinstance(error, AppNotBotDeveloper) or isinstance(error, AppNotStaffCheck):
+async def on_app_command_error(interaction: discord.Interaction, error):
+    if isinstance(error, (AppNotBotDeveloper, AppNotStaffCheck)):
         await interaction.response.send_message(str(error), ephemeral=True)
-        return # return so we don't continue for no reason
+        return
+
+    if isinstance(error, CommandInvokeError):
+        error = error.original
+
+    tb = "".join(traceback.format_exception(type(error), error, error.__traceback__))
+
+    embed = discord.Embed(title="❌ Command Error", description=f"```py\n{tb[:4000]}\n```", color=discord.Color.red(), timestamp=discord.utils.utcnow())
+    embed.add_field(name="Command", value=f"`/{interaction.command.qualified_name if interaction.command else 'unknown'}`", inline=False)
+    embed.add_field(name="User", value=f"{interaction.user.mention}\n`{interaction.user.id}`", inline=True)
+    embed.add_field(name="Guild", value=f"{interaction.guild.name}\n`{interaction.guild.id}`" if interaction.guild else "DM", inline=True)
+    embed.add_field(name="Channel", value=f"{interaction.channel.mention}\n`{interaction.channel.id}`" if interaction.channel else "DM", inline=True)
+    embed.set_footer(text=type(error).__name__)
 
     channel = bot.get_channel(BOT_ERROR_CHANNEL_ID)
-
     if channel:
-        await channel.send(f"Error in `/{interaction.command.qualified_name}`:\n```{error}```") # I should switch to this to an embed, this shit is ugly
+        await channel.send(embed=embed)
+
+    message = "An error has occurred. Please notify Aep (<@415606064856301589>) immediately."
+
     if interaction.response.is_done():
-        await interaction.followup.send("An error has occured. Please notify Aep of this error immediately.", ephemeral=True)
+        await interaction.followup.send(message, ephemeral=True)
     else:
-        await interaction.response.send_message("An error has occured. Please notify Aep of this error immediately. (apparently interaction didn't finish?)", ephemeral=True)
+        await interaction.response.send_message(message, ephemeral=True)
 
 async def main():
     async with bot:

@@ -3,7 +3,7 @@ import sys
 from discord.ext import commands
 from discord import app_commands, TextChannel
 
-from utils.helpers import is_staff
+from utils.helpers import is_staff_app_check
 
 python_version = sys.version.split()[0]
 
@@ -25,7 +25,7 @@ class Extras(commands.Cog):
     @app_commands.guild_only()
     @app_commands.describe(channel="The channel to send the message in, if not the current channge", message="The message to send")
     @app_commands.command(name="speak", description="Send a message as the bot")
-    @is_staff()
+    @is_staff_app_check()
     async def speak_command(self, interaction: discord.Interaction, message: str, channel: discord.TextChannel = None):
         if channel == None:
             channel = interaction.channel

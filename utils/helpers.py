@@ -46,14 +46,14 @@ def get_string_by_message_log(messageLog: MessageLog) -> str:
         case _:
             return "(Unknown Action Type)"
 
-def is_bot_developer():
+def is_bot_developer_app_check():
     async def predicate(interaction: discord.Interaction) -> bool:
         if interaction.user.id in BOT_DEVELOPERS:
             return True
         raise AppNotBotDeveloper("You are not a bot developer, and therefore can't use this command.")
     return app_commands.check(predicate)
 
-def is_staff():
+def is_staff_app_check():
     async def predicate(interaction: discord.Interaction) -> bool:
         user = interaction.user
         role = interaction.guild.get_role(STAFF_ROLE_ID)
@@ -62,6 +62,13 @@ def is_staff():
                 return True
         raise AppNotStaffCheck("You are not staff, and therefore can't use this command.")
     return app_commands.check(predicate)
+
+def is_staff(member: discord.Member, guild: discord.Guild):
+    role = guild.get_role(STAFF_ROLE_ID)
+    if isinstance(member, discord.Member):
+        if role in member.roles:
+            return True
+    return False
 
 async def check_staff_target(interaction: discord.Interaction, user: discord.User):
     role = interaction.guild.get_role(STAFF_ROLE_ID)

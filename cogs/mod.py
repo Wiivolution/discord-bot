@@ -1,17 +1,14 @@
 import discord
-import sys
 from discord import app_commands
 from discord.utils import format_dt
 from discord.ext import commands
 
-from utils.helpers import check_staff_target
-from utils.helpers import post_action_log
+import sys
+
+from utils.helpers import check_staff_target, is_staff, post_action_log
 from utils.enums import ActionType
 
-from constants import MODMAIL_USER_ID
-from constants import DISCORD_OAUTH2_LINK
-from constants import DISCORD_USER_URL
-from constants import MOD_LOGS_CHANNEL_ID
+from constants import MODMAIL_USER_ID, DISCORD_OAUTH2_LINK, DISCORD_USER_URL, MOD_LOGS_CHANNEL_ID
 
 class Mod(commands.Cog):
     def __init__(self, bot):
@@ -45,14 +42,15 @@ class Mod(commands.Cog):
             # eventually log here something.
             await interaction.followup.send(f"Successfully deleted {len(deleted)} messages in {channel.mention}!")
         else:
-            await interaction.followup.send("No messages were deleted.", ephemeral=True)
-
+            await interaction.followup.send("No messages were deleted.", ephemeral=True)\
+        
+    # todo: switch to an embed, or hell rewrite user-info
     @app_commands.guild_only()
     @app_commands.command(name="user-info", description="Get user info for a specific user")
     async def user_info_command(self, interaction: discord.Interaction, user: discord.User = None, ephemeral: bool = False):
         if user == None: # why not
             user = interaction.user
-        if not interaction.user.guild_permissions.ban_members and user.id != interaction.user.id: # allow users to use the command on themselves, but only allow staff to use it on other users (ban reasons are revealed, therefore ban members is required to use on anyone)
+        if not is_staff(member=interaction.user, guild=interaction.guild) and user.id != interaction.user.id:
             await interaction.response.send_message("This commmand can only be used on yourself.", ephemeral=True)
             return
         guild = interaction.guild
