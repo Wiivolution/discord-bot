@@ -9,13 +9,7 @@ from discord.ext import commands
 from discord.utils import format_dt
 
 # constants
-from constants import TOKEN
-from constants import OWNER_USER_ID
-from constants import BOT_ERROR_CHANNEL_ID
-from constants import SERVER_LOGS_CHANNEL_ID
-from constants import MESSAGE_LOGS_CHANNEL_ID
-from constants import KILLBOX_CHANNEL_ID
-from constants import BOT_DEVELOPERS
+from constants import TOKEN, OWNERS, BOT_ERROR_CHANNEL_ID, SERVER_LOGS_CHANNEL_ID, MESSAGE_LOGS_CHANNEL_ID, KILLBOX_CHANNEL_ID, BOT_DEVELOPERS
 
 # enums
 from utils.enums import ServerAction
@@ -36,7 +30,7 @@ intents.message_content = True
 
 allowed_mentions = discord.AllowedMentions(everyone=False, roles=False)
 
-bot = commands.Bot(command_prefix=".", intents=intents, allowed_mentions=allowed_mentions, owner_id=OWNER_USER_ID)
+bot = commands.Bot(command_prefix=".", intents=intents, allowed_mentions=allowed_mentions, owner_ids=OWNERS)
 
 cogs_list = [
     "cogs.extras",

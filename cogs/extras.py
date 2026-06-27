@@ -19,7 +19,6 @@ class Extras(commands.Cog):
         await ctx.send("Synced app commands successfully!")
 
     @commands.command(name="testcommand")
-    @commands.is_owner()
     async def test_prefix_command(self, ctx):
         await ctx.send("Prefix commands work!")
 
