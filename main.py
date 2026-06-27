@@ -29,7 +29,11 @@ from utils.helpers import post_message_log
 
 discord.utils.setup_logging()
 
-intents = discord.Intents.all()
+# We are no longer free to use discord.Intents.all() as we do not have a valid excuse for the Presence intent. We now have all intents except for it.
+intents = discord.Intents.default()
+intents.members = True
+intents.message_content = True
+
 allowed_mentions = discord.AllowedMentions(everyone=False, roles=False)
 
 bot = commands.Bot(command_prefix=".", intents=intents, allowed_mentions=allowed_mentions, owner_id=OWNER_USER_ID)
