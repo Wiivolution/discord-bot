@@ -5,22 +5,13 @@ import io
 from datetime import datetime
 
 import discord
-from discord.app_commands.errors import CommandInvokeError
+from discord.app_commands.errors import CommandInvokeError, TransformerError
 from discord.ext import commands
 from discord.utils import format_dt
 
-# constants
 from constants import TOKEN, OWNERS, BOT_ERROR_CHANNEL_ID, SERVER_LOGS_CHANNEL_ID, MESSAGE_LOGS_CHANNEL_ID, KILLBOX_CHANNEL_ID, BOT_DEVELOPERS
-
-# enums
-from utils.enums import ServerAction
-from utils.enums import MessageLog
-
-# helper functions
-from utils.helpers import AppNotBotDeveloper
-from utils.helpers import AppNotStaffCheck
-from utils.helpers import post_server_log
-from utils.helpers import post_message_log
+from utils.enums import ServerAction, MessageLog
+from utils.helpers import AppNotBotDeveloper, AppNotStaffCheck, post_message_log, post_server_log
 
 discord.utils.setup_logging()
 
@@ -36,7 +27,8 @@ bot = commands.Bot(command_prefix=".", intents=intents, allowed_mentions=allowed
 cogs_list = [
     "cogs.extras",
     "cogs.mod",
-    "cogs.dev"
+    "cogs.dev",
+    "cogs.restriction"
 ]
 
 async def load_extensions():
@@ -93,7 +85,7 @@ async def on_error(event, *args, **kwargs):
             
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error):
-    if isinstance(error, (AppNotBotDeveloper, AppNotStaffCheck)):
+    if isinstance(error, (AppNotBotDeveloper, AppNotStaffCheck, ValueError, TransformerError)):
         await interaction.response.send_message(str(error), ephemeral=True)
         return
 

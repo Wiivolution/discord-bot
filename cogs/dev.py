@@ -73,8 +73,6 @@ class Dev(commands.GroupCog):
     async def quit_bot_command(self, interaction: discord.Interaction):
         await interaction.response.send_message("Closing bot...")
         self.bot.close()
-    
-    
 
 async def setup(bot):
     await bot.add_cog(Dev(bot))

@@ -4,12 +4,9 @@ from discord import app_commands
 from discord.utils import format_dt
 from discord.ext import commands
 
-from constants import BOT_DEVELOPERS
-from constants import STAFF_ROLE_ID
+from constants import BOT_DEVELOPERS, MODMAIL_USER_ID, STAFF_ROLE_ID
 
-from utils.enums import ActionType
-from utils.enums import ServerAction
-from utils.enums import MessageLog
+from utils.enums import ActionType, ServerAction, MessageLog
 
 class AppNotBotDeveloper(app_commands.CheckFailure):
     message: str
@@ -17,14 +14,40 @@ class AppNotBotDeveloper(app_commands.CheckFailure):
 class AppNotStaffCheck(app_commands.CheckFailure):
     message: str
 
+class DateOrTimeToSecondsConverter:
+    @staticmethod
+    def parse(value: str) -> int:
+        units = {"s": 1, "m": 60, "h": 3600, "d": 86400}
+        total_seconds = 0
+        
+        for token in value.lower().split():
+            unit = token[-1]
+            if unit not in units:
+                raise ValueError("Invalid time unit")
+                
+            amount = int(token[:-1])
+            total_seconds += amount * units[unit]
+            
+        return total_seconds
+
+class DurationTransformer(app_commands.Transformer):
+    async def transform(self, interaction, value: str) -> int:
+        return DateOrTimeToSecondsConverter.parse(value)
+
 def get_string_by_action_type(actionType: ActionType) -> str:
     match actionType:
         case ActionType.Ban:
             return "Banned"
         case ActionType.Kick:
             return "Kicked"
+        case ActionType.ScamKick:
+            return "Scamkicked"
         case ActionType.Unban:
             return "Unbanned"
+        case ActionType.Timeout:
+            return "Timed Out"
+        case ActionType.TimeoutRemoval:
+            return "Timeout Removed"
         case _:
             return "(Unknown Action Type)"
 
@@ -76,7 +99,7 @@ async def check_staff_target(interaction: discord.Interaction, user: discord.Use
         if role in user.roles:
             await interaction.response.send_message("You cannot perform this action on this user.", ephemeral=True)
             return True
-    return False  
+    return False
 
 async def post_action_log(interaction: discord.Interaction, target: discord.User, action: ActionType, channel: discord.TextChannel, color: discord.Color, author: discord.User = None, reason: str = None):
     channel = interaction.guild.get_channel(channel)

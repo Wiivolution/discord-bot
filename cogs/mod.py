@@ -4,11 +4,14 @@ from discord.utils import format_dt
 from discord.ext import commands
 
 import sys
+from datetime import datetime, timedelta
 
-from utils.helpers import check_staff_target, is_staff, post_action_log
+from utils.helpers import check_staff_target, is_staff, post_action_log, DurationTransformer
 from utils.enums import ActionType
 
 from constants import MODMAIL_USER_ID, DISCORD_OAUTH2_LINK, DISCORD_USER_URL, MOD_LOGS_CHANNEL_ID
+
+# TODO: EMBED HELPER FUNCTION
 
 class Mod(commands.Cog):
     def __init__(self, bot):
@@ -119,6 +122,36 @@ class Mod(commands.Cog):
         await interaction.response.send_message(f"{user} is now gone.")
         await post_action_log(interaction=interaction, author=interaction.user, target=user, action=ActionType.Kick, channel=MOD_LOGS_CHANNEL_ID, reason=reason, color=discord.Color.red())
 
+    @app_commands.default_permissions(kick_members=True)
+    @app_commands.guild_only()
+    @app_commands.describe(user="The user to kick")
+    @app_commands.command(name="scamkick", description="(ONLY USE FOR SCAMS) Kick a user, and let them know they have been compromised.")
+    async def scamkick_user_command(self, interaction: discord.Interaction, user: discord.Member): # a kick needs them to be in the server, so we use discord.Member instead of discord.User
+        if await check_staff_target(interaction, user):
+            return
+        if not isinstance(user, discord.Member):
+            await interaction.response.send_message(f"{user.mention} ({user.id}) is not in the server!", ephemeral=True)
+            return
+        reason = "Sending or linking scams or spam content, and/or compromised account."
+        information_embed = discord.Embed(
+            title=f"You were kicked from {interaction.guild.name}.",
+            description=f"You were kicked because your account has been compromised and has sent spam or scams in the server.\nYou are able to rejoin the server, but please secure your account, reinstall your operating system, and consider adding two-factor authentication.",
+            color=discord.Color.red()
+        )
+        try:
+            await user.send(embeds=[information_embed])
+        except discord.Forbidden:
+            pass # user disabled dms or left
+        try:
+            await interaction.guild.ban(user, reason=reason, delete_message_days=1)
+            await interaction.guild.unban(user)
+        except discord.errors.Forbidden as forbidden_to_kick_exception:
+            await interaction.response.send_message(f"Failed to kick member: {forbidden_to_kick_exception}", ephemeral=True)
+            return
+        
+        await interaction.response.send_message(f"{user} is now gone.")
+        await post_action_log(interaction=interaction, author=interaction.user, target=user, action=ActionType.ScamKick, channel=MOD_LOGS_CHANNEL_ID, reason=reason, color=discord.Color.red())
+
     @app_commands.default_permissions(ban_members=True)
     @app_commands.guild_only()
     @app_commands.describe(user="The user to ban", reason="Reason for the ban", remove_messages="Number of days of messages to delete (up to 7 max)", silent="Opt out of notifying the user of the ban via DM")
@@ -170,8 +203,52 @@ class Mod(commands.Cog):
             await interaction.response.send_message(f"Failed to unban member: {forbidden_to_unban_exception}", ephemeral=True)
             return
 
-        await interaction.response.send_message(f"{user} is now unbanned.")
+        await interaction.response.send_message(f"{user} ({user.id}) is now unbanned.")
         await post_action_log(interaction=interaction, author=interaction.user, target=user, action=ActionType.Unban, channel=MOD_LOGS_CHANNEL_ID, reason=reason, color=discord.Color(0xFFFFFF))
+
+    @app_commands.default_permissions(moderate_members=True)
+    @app_commands.guild_only()
+    @app_commands.describe(member="The member to timeout", length="Amount of time to time them out for (format: #d#h#m#s)", reason="The reason for the timeout")
+    @app_commands.command(name="timeout", description="Time out (mute) a member")
+    async def timeout_command(self, interaction: discord.Interaction, member: discord.Member, length: app_commands.Transform[int, DurationTransformer], reason: str = None):
+        if length >= 2419200:
+            await interaction.response.send_message("Timeouts cannot be longer than 28 days!", ephemeral=True)
+            return
+        if await check_staff_target(interaction=interaction, user=member):
+            return
+            
+        timeout_expiration = discord.utils.utcnow() + timedelta(seconds=length)
+        timeout_expiration_str = format_dt(timeout_expiration)
+        await member.timeout(timeout_expiration, reason=reason)
+
+        information_embed = discord.Embed(
+            title=f"You were given a timeout in {interaction.guild.name}!",
+            description=f"Reason: {reason}\nUntil:{timeout_expiration_str}",
+            color=discord.Color.red()
+        )
+
+        appeals_embed = discord.Embed(
+            title=f"Appeal Information",
+            description=f"You may appeal your timeout by DMing <@{MODMAIL_USER_ID}>.",
+            color=discord.Color.dark_red()
+        )
+        
+        try:
+            await member.send(embeds=[information_embed, appeals_embed])
+        except discord.Forbidden:
+            pass # user disabled dms or left
+        
+        await interaction.response.send_message(f"{member} ({member.id}) has been timed out until {timeout_expiration_str}.")
+        await post_action_log(interaction=interaction, target=member, action=ActionType.Timeout, channel=MOD_LOGS_CHANNEL_ID, reason=f"{reason}\nUntil:{timeout_expiration_str}", color=discord.Color.red(), author=interaction.user)
+    
+    @app_commands.default_permissions(moderate_members=True)
+    @app_commands.guild_only()
+    @app_commands.describe(member="The member to untimeout", reason="The reason for the timeout removal")
+    @app_commands.command(name="untimeout", description="Un time out (mute) a member")
+    async def untimeout_command(self, interaction: discord.Interaction, member: discord.Member, reason: str = None):
+        await member.timeout(None) # removes the timeout
+        await interaction.response.send_message(f"{member} ({member.id}) is no longer timed out.")
+        await post_action_log(interaction=interaction, target=member, action=ActionType.TimeoutRemoval, channel=MOD_LOGS_CHANNEL_ID, reason=f"{reason}", color=discord.Color(0xFFFFFF), author=interaction.user)
 
 async def setup(bot):
     await bot.add_cog(Mod(bot))
