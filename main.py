@@ -94,7 +94,7 @@ async def on_app_command_error(interaction: discord.Interaction, error):
 
     tb = "".join(traceback.format_exception(type(error), error, error.__traceback__))
 
-    embed = discord.Embed(title="❌ Command Error", description=f"```py\n{tb[:4000]}\n```", color=discord.Color.red(), timestamp=discord.utils.utcnow())
+    embed = discord.Embed(title="Command Error", description=f"```py\n{tb[:4000]}\n```", color=discord.Color.red(), timestamp=discord.utils.utcnow())
     embed.add_field(name="Command", value=f"`/{interaction.command.qualified_name if interaction.command else 'unknown'}`", inline=False)
     embed.add_field(name="User", value=f"{interaction.user.mention}\n`{interaction.user.id}`", inline=True)
     embed.add_field(name="Guild", value=f"{interaction.guild.name}\n`{interaction.guild.id}`" if interaction.guild else "DM", inline=True)
