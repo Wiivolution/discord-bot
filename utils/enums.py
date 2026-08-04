@@ -11,6 +11,7 @@ class ActionType(Enum):
 class ServerAction(Enum):
     Join = auto()
     Leave = auto()
+    KillboxTrigger = auto()
 
 class MessageLog(Enum):
     Delete = auto()

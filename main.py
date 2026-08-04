@@ -9,9 +9,9 @@ from discord.app_commands.errors import CommandInvokeError, TransformerError
 from discord.ext import commands
 from discord.utils import format_dt
 
-from constants import TOKEN, OWNERS, BOT_ERROR_CHANNEL_ID, SERVER_LOGS_CHANNEL_ID, MESSAGE_LOGS_CHANNEL_ID, KILLBOX_CHANNEL_ID, BOT_DEVELOPERS
+from constants import TOKEN, OWNERS, BOT_ERROR_CHANNEL_ID, SERVER_LOGS_CHANNEL_ID, MOD_LOGS_CHANNEL_ID, MESSAGE_LOGS_CHANNEL_ID, KILLBOX_CHANNEL_ID, BOT_DEVELOPERS, HONEYPOT_ROLE_ID
 from utils.enums import ServerAction, MessageLog
-from utils.helpers import AppNotBotDeveloper, AppNotStaffCheck, post_message_log, post_server_log
+from utils.helpers import AppNotBotDeveloper, AppNotStaffCheck, post_message_log, post_server_log, handle_honeypot_action
 
 discord.utils.setup_logging()
 
@@ -50,8 +50,16 @@ async def on_member_remove(member: discord.Member):
 
 @bot.event
 async def on_message(message: discord.Message):
+    # honeypot role
+    role_mentions = message.role_mentions
+    if role_mentions:
+        for role in role_mentions:
+            if role.id == HONEYPOT_ROLE_ID:
+                await handle_honeypot_action(user=message.author, guild=message.channel.guild, reason="Pinged honeypot role", log_channel=MOD_LOGS_CHANNEL_ID)
+
+    # honeypot/killbox channel:
     if message.channel.id == KILLBOX_CHANNEL_ID:
-        print(f"killbox moment {message.author.id}")
+        await handle_honeypot_action(user=message.author, guild=message.channel.guild, reason="Sent message in honeypot channel", log_channel=MOD_LOGS_CHANNEL_ID)
 
     await bot.process_commands(message)
 

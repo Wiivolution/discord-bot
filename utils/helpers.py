@@ -4,7 +4,7 @@ from discord import app_commands
 from discord.utils import format_dt
 from discord.ext import commands
 
-from constants import BOT_DEVELOPERS, MODMAIL_USER_ID, STAFF_ROLE_ID
+from constants import BOT_DEVELOPERS, MODMAIL_USER_ID, STAFF_ROLE_ID, KILLBOX_DELETE_MESSAGE_SECONDS
 
 from utils.enums import ActionType, ServerAction, MessageLog
 
@@ -57,6 +57,8 @@ def get_string_by_server_action(serverAction: ServerAction) -> str:
             return "Member Joined"
         case ServerAction.Leave:
             return "Member Left"
+        case ServerAction.KillboxTrigger:
+            return "Member Triggered Killbox"
         case _:
             return "(Unknown Action Type)"
 
@@ -100,6 +102,23 @@ async def check_staff_target(interaction: discord.Interaction, user: discord.Use
             await interaction.response.send_message("You cannot perform this action on this user.", ephemeral=True)
             return True
     return False
+
+async def post_honeypot_log(user: discord.User, channel: discord.TextChannel, reason: str):
+    embed = discord.Embed(
+        title=f"Member Triggered Honeypot",
+        description=f"Reason: {reason}",
+    )
+    embed.add_field(name="User", value=f"{user.mention} (`{user.name}`) (`{user.id}`)", inline=True) 
+    embed.set_thumbnail(url=user.display_avatar.url)
+
+    await channel.send(embeds=[embed])
+
+async def handle_honeypot_action(user: discord.User, guild: discord.Guild, reason: str, log_channel: discord.TextChannel): # reason is string because I'm lazy :)
+    if is_staff(member=user, guild=guild): # staff are immune
+        return
+    await guild.ban(user, reason="Triggered honeypot, banning to purge messages", delete_message_seconds=KILLBOX_DELETE_MESSAGE_SECONDS)
+    await guild.unban(user, reason="Triggered honeypot, unbanning after purging messages")
+    await post_honeypot_log(user=user, channel=guild.get_channel(log_channel), reason=reason)
 
 async def post_action_log(interaction: discord.Interaction, target: discord.User, action: ActionType, channel: discord.TextChannel, color: discord.Color, author: discord.User = None, reason: str = None):
     channel = interaction.guild.get_channel(channel)
