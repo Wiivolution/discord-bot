@@ -215,7 +215,7 @@ async def post_message_log(bot: commands.Bot, messageLog: MessageLog, channel: d
 
 async def handle_warn_automated_action(user: discord.User, guild: discord.Guild, warn_count: int):
     if warn_count >= 5:
-        await guild.ban(user, reason="Reached 5+ warnings")
+        await guild.ban(user, reason="Reached 5+ warnings", delete_message_seconds=0)
         return
     elif warn_count >= 3 and guild.get_member(user.id):
         await guild.kick(user, reason=f"Reached {warn_count} warnings")
