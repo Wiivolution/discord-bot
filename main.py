@@ -5,13 +5,14 @@ import io
 from datetime import datetime
 
 import discord
-from discord.app_commands.errors import CommandInvokeError, TransformerError
+from discord.app_commands.errors import CommandInvokeError, TransformerError, CheckFailure
 from discord.ext import commands
 from discord.utils import format_dt
 
-from constants import TOKEN, OWNERS, BOT_ERROR_CHANNEL_ID, SERVER_LOGS_CHANNEL_ID, MOD_LOGS_CHANNEL_ID, MESSAGE_LOGS_CHANNEL_ID, KILLBOX_CHANNEL_ID, BOT_DEVELOPERS, HONEYPOT_ROLE_ID
+from constants import TOKEN, OWNERS, BOT_ERROR_CHANNEL_ID, SERVER_LOGS_CHANNEL_ID, MOD_LOGS_CHANNEL_ID, MESSAGE_LOGS_CHANNEL_ID, BOT_DEVELOPERS
 from utils.enums import ServerAction, MessageLog
 from utils.helpers import AppNotBotDeveloper, AppNotStaffCheck, post_message_log, post_server_log, handle_honeypot_action
+from utils.database import init_database
 
 discord.utils.setup_logging()
 
@@ -22,19 +23,27 @@ intents.message_content = True
 
 allowed_mentions = discord.AllowedMentions(everyone=False, roles=False)
 
-bot = commands.Bot(command_prefix=".", intents=intents, allowed_mentions=allowed_mentions, owner_ids=OWNERS)
+class Bot(commands.Bot):
+    async def setup_hook(self):
+        self.server_logs_channel = (self.get_channel(SERVER_LOGS_CHANNEL_ID) or await self.fetch_channel(SERVER_LOGS_CHANNEL_ID))
+        self.mod_logs_channel = (self.get_channel(MOD_LOGS_CHANNEL_ID) or await self.fetch_channel(MOD_LOGS_CHANNEL_ID))
+
+bot = Bot(command_prefix=".", intents=intents, allowed_mentions=allowed_mentions, owner_ids=OWNERS)
 
 cogs_list = [
     "cogs.extras",
     "cogs.mod",
     "cogs.dev",
-    "cogs.restriction"
+    "cogs.restriction",
+    "cogs.logs"
 ]
 
 async def load_extensions():
     for cog in cogs_list:
         await bot.load_extension(cog)
         print(f"Successfully loaded {cog}!")
+
+# events should eventually be moved to a listener cog.
 
 @bot.event
 async def on_ready():
@@ -50,30 +59,21 @@ async def on_member_remove(member: discord.Member):
 
 @bot.event
 async def on_message(message: discord.Message):
-    # honeypot role
-    role_mentions = message.role_mentions
-    if role_mentions:
-        for role in role_mentions:
-            if role.id == HONEYPOT_ROLE_ID:
-                await handle_honeypot_action(user=message.author, guild=message.channel.guild, reason="Pinged honeypot role", log_channel=MOD_LOGS_CHANNEL_ID)
-
-    # honeypot/killbox channel:
-    if message.channel.id == KILLBOX_CHANNEL_ID:
-        await handle_honeypot_action(user=message.author, guild=message.channel.guild, reason="Sent message in honeypot channel", log_channel=MOD_LOGS_CHANNEL_ID)
-
     await bot.process_commands(message)
 
 @bot.event
 async def on_message_delete(message: discord.Message):
     if isinstance(message.channel, discord.DMChannel):
         return
-    if message.author.bot:
+    if old_message.author.id == bot.user.id:
         return
     await post_message_log(bot=bot, messageLog=MessageLog.Delete, channel=MESSAGE_LOGS_CHANNEL_ID, color=discord.Color.red(), message=message)
 
 @bot.event
 async def on_message_edit(old_message: discord.Message, new_message: discord.Message):
     if isinstance(old_message.channel, discord.DMChannel):
+        return
+    if old_message.author.id == bot.user.id:
         return
     if old_message.content == new_message.content:
         return
@@ -93,12 +93,12 @@ async def on_error(event, *args, **kwargs):
             
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error):
-    if isinstance(error, (AppNotBotDeveloper, AppNotStaffCheck, ValueError, TransformerError)):
-        await interaction.response.send_message(str(error), ephemeral=True)
-        return
-
     if isinstance(error, CommandInvokeError):
         error = error.original
+
+    if isinstance(error, (AppNotBotDeveloper, AppNotStaffCheck, ValueError, TransformerError, CheckFailure)):
+        await interaction.response.send_message(str(error), ephemeral=True)
+        return
 
     tb = "".join(traceback.format_exception(type(error), error, error.__traceback__))
 
@@ -114,7 +114,7 @@ async def on_app_command_error(interaction: discord.Interaction, error):
     if channel:
         await channel.send(embed=embed)
 
-    message = "An error has occurred. Please notify Aep (<@415606064856301589>) immediately."
+    message = "An error has occurred. Please notify Aep (<@82870140068171776>) immediately."
 
     if interaction.response.is_done():
         await interaction.followup.send(message, ephemeral=True)
@@ -122,6 +122,7 @@ async def on_app_command_error(interaction: discord.Interaction, error):
         await interaction.response.send_message(message, ephemeral=True)
 
 async def main():
+    await init_database()
     async with bot:
         await load_extensions()
         await bot.start(TOKEN)

@@ -13,7 +13,6 @@ python_version = sys.version.split()[0]
 class Dev(commands.GroupCog):
     def __init__(self, bot):
         self.bot = bot
-        self._last_member = None
 
     @app_commands.command(name="bot-username", description="Set bot username")
     @is_bot_developer_app_check()

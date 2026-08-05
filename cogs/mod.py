@@ -4,19 +4,160 @@ from discord.utils import format_dt
 from discord.ext import commands
 
 import sys
+import re
 from datetime import datetime, timedelta
 
-from utils.helpers import check_staff_target, is_staff, post_action_log, DurationTransformer
+from utils.helpers import check_staff_target, is_staff, is_staff_app_check, post_action_log, DurationTransformer, handle_honeypot_action, get_user_warning_count, get_all_user_warnings, is_guild_invite_whitelisted, handle_warn_automated_action, get_latest_user_warning, does_warn_exist
 from utils.enums import ActionType
+import utils.database as database
 
-from constants import MODMAIL_USER_ID, DISCORD_OAUTH2_LINK, DISCORD_USER_URL, MOD_LOGS_CHANNEL_ID
+from constants import MODMAIL_USER_ID, DISCORD_OAUTH2_LINK, DISCORD_USER_URL, MOD_LOGS_CHANNEL_ID, HONEYPOT_ROLE_ID, KILLBOX_CHANNEL_ID
 
 # TODO: EMBED HELPER FUNCTION
 
 class Mod(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self._last_member = None
+
+    async def check_discord_invites_message(self, message: discord.Message):
+        # todo: some message log bs for this. #message-logs already logs these naturally so for now it's fine?
+        if is_staff(member=message.author, guild=message.guild): # staff immunity
+            return
+
+        regex = r"(?:https?://)?(?:www\.)?(?:discord\.gg|discord(?:app)?\.com/invite)(?::\d+)?/[\w-]+(?:\?[^\s]*)?" # thanks to shlok
+        matches = re.findall(regex, message.content)
+        for match in matches:
+            try:
+                invite = await self.bot.fetch_invite(match)
+                if not await is_guild_invite_whitelisted(invite.guild.id):
+                    await message.delete()
+                    return
+            except discord.NotFound:
+                # it wasn't found who cares
+                await message.delete()
+                return
+            except discord.HTTPException:
+                await message.delete()
+                return
+            except ValueError:
+                # according to discord.py docs: The url contains an event_id, but scheduled_event_id has also been provided.
+                await message.delete()
+                return
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        # for moderational on_message, ignore DMs or messages from other bots
+        if message.guild is None or message.author.bot:
+            return
+
+        # discord invite check
+        await self.check_discord_invites_message(message=message)
+
+        # honeypot role
+        role_mentions = message.role_mentions
+        if role_mentions:
+            for role in role_mentions:
+                if role.id == HONEYPOT_ROLE_ID:
+                    await handle_honeypot_action(user=message.author, guild=message.channel.guild, reason="Pinged honeypot role", log_channel=MOD_LOGS_CHANNEL_ID)
+
+        # honeypot/killbox channel:
+        if message.channel.id == KILLBOX_CHANNEL_ID:
+            await handle_honeypot_action(user=message.author, guild=message.channel.guild, reason="Sent message in honeypot channel", log_channel=MOD_LOGS_CHANNEL_ID)
+
+    # todo: warn cog
+    @is_staff_app_check()
+    @app_commands.guild_only()
+    @app_commands.describe(user="The user to warn", reason="The reason to warn the user", skip_action="If the automated action that the warn should apply should be skipped")
+    @app_commands.command(name="warn", description="Warn a user. Notifys them via DMs (if possible)")
+    async def warn_member_command(self, interaction: discord.Interaction, user: discord.User, reason: str, skip_action: bool = False):
+        if await check_staff_target(interaction, user):
+            return
+        await interaction.response.defer()
+        result = await database.execute(query="INSERT INTO warnings (user_id, issuer_id, reason) VALUES (?, ?, ?)", parameters=(user.id, interaction.user.id, reason,))
+        # todo: explain what each warn does
+        if isinstance(user, discord.Member):
+            information_embed = discord.Embed(
+                title=f"You were warned in {interaction.guild.name}.",
+                description=f"Reason: {reason}",
+                color=discord.Color.red()
+            )
+
+            appeals_embed = discord.Embed(
+                title=f"Appeal Information",
+                description=f"You may appeal your warning by DMing <@{MODMAIL_USER_ID}>.",
+                color=discord.Color.dark_red()
+            )
+
+            try:
+                await user.send(embeds=[information_embed, appeals_embed])
+            except discord.Forbidden:
+                pass # user disabled dms or left
+        warn_count = await get_user_warning_count(user.id)
+        if not skip_action:
+            await handle_warn_automated_action(guild=interaction.guild, user=user, warn_count=warn_count)
+        await interaction.followup.send(f"{user.mention} ({user.id}) warned. They have been warned {warn_count} times.")
+        warn_id = (await get_latest_user_warning(user.id))[0]
+        await post_action_log(interaction=interaction, target=user, action=ActionType.Warn, channel=MOD_LOGS_CHANNEL_ID, color=discord.Color.orange(), author=interaction.user, reason=f"{reason} (**Warn #{warn_count} | ID {warn_id}**)")
+
+    @is_staff_app_check()
+    @app_commands.guild_only()
+    @app_commands.describe(warn_id="The ID of the warn to remove, you can get this via using /warn-list on a user.", reason="Reason for removing the warn")
+    @app_commands.command(name="warn-remove", description="Remove a warn from a user")
+    async def warn_remove_command(self, interaction: discord.Interaction, warn_id: int, reason: str):
+        if not await does_warn_exist(warn_id):
+            raise ValueError(f"Warn {warn_id} does not exist.")
+        await database.execute(query="DELETE FROM warnings WHERE warn_id = ?", parameters=(warn_id,))
+        await interaction.response.send_message(f"Successfully removed warn {warn_id}!")
+        await post_action_log(interaction=interaction, action=ActionType.WarnRemove, channel=MOD_LOGS_CHANNEL_ID, color=discord.Color.orange(), author=interaction.user, reason=f"{reason}\n(**Warn ID: {warn_id}**)")
+    
+    @app_commands.guild_only()
+    @app_commands.describe(user="The user whos warns to check, if not yourself.")
+    @app_commands.command(name="warn-list", description="Check your (or another user)'s warns")
+    async def list_warns_command(self, interaction: discord.Interaction, user: discord.User = None, ephemeral: bool = False):
+        if user == None: # why not
+            user = interaction.user
+        if not is_staff(member=interaction.user, guild=interaction.guild) and user.id != interaction.user.id:
+            await interaction.response.send_message("This commmand can only be used on yourself.", ephemeral=ephemeral)
+            return
+
+        if await get_user_warning_count(user.id) < 1:
+            await interaction.response.send_message(f"No warns found for user {user.mention} ({user.id}).", ephemeral=ephemeral)
+            return
+        
+        embed = discord.Embed()
+        embed.set_author(name=f"Warns for {user} ({user.id})", icon_url=user.display_avatar.url)
+        warnings = await get_all_user_warnings(user.id)
+        for count, (warn_id, user_id, issuer_id, reason, timestamp) in enumerate(warnings, start=1):
+            value = f"Warning ID: {warn_id}\n"
+            value += f"Reason: {reason}\n"
+            if is_staff(member=interaction.user, guild=interaction.guild):
+                value += f"Issuer: {issuer_id}"
+
+            embed.add_field(name=f"{count}: <t:{int(datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S').timestamp())}>", value=value)
+        await interaction.response.send_message(embeds=[embed], ephemeral=ephemeral)
+
+    # this should be moved into an invite cog?
+    @is_staff_app_check()
+    @app_commands.guild_only()
+    @app_commands.describe(guild_id="The ID of the guild/server to whitelist invites for")
+    @app_commands.command(name="whitelist-guild-invite", description="Whitelist invites for a guild/server")
+    async def whitelist_guild_invite_command(self, interaction: discord.Interaction, guild_id: str):
+        guild_id = int(guild_id)
+        if await is_guild_invite_whitelisted(guild_id):
+            raise ValueError("This guild invite is already whitelisted.")
+        await database.execute(query="INSERT INTO whitelisted_guilds (guild_id, adder_id) VALUES (?, ?)", parameters=(guild_id, interaction.user.id,))
+        await interaction.response.send_message(f"Successfully whitelisted guild {guild_id} for invites!")
+
+    @is_staff_app_check()
+    @app_commands.guild_only()
+    @app_commands.describe(guild_id="The ID of the guild/server to unwhitelist invites for")
+    @app_commands.command(name="unwhitelist-guild-invite", description="Unwhitelist invites for a guild/server")
+    async def unwhitelist_guild_invite_command(self, interaction: discord.Interaction, guild_id: str):
+        guild_id = int(guild_id)
+        if not await is_guild_invite_whitelisted(guild_id):
+            raise ValueError("This guild invite is not whitelisted.")
+        await database.execute(query="DELETE FROM whitelisted_guilds WHERE guild_id = ?", parameters=(guild_id,))
+        await interaction.response.send_message(f"Successfully unwhitelisted guild {guild_id} for invites!")
 
     @app_commands.default_permissions(manage_messages=True)
     @app_commands.guild_only()

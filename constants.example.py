@@ -3,7 +3,7 @@ TOKEN = "Token here"
 
 # USER IDs
 OWNERS = [] 
-BOT_DEVELOPERS = [] # fill in like ID, ID (415606064856301589, 1469810031229927618)
+BOT_DEVELOPERS = [] # fill in like ID, ID (82870140068171776, 1469810031229927618)
 MODMAIL_USER_ID = 
 
 # ROLE IDs
@@ -23,3 +23,7 @@ KILLBOX_DELETE_MESSAGE_SECONDS = 86400 # 1 day
 # DISCORD LINKS (for modmail)
 DISCORD_USER_URL = "https://discord.com/users/"
 DISCORD_OAUTH2_LINK = "https://discord.com/oauth2/authorize?client_id="
+
+DATABASE_FILE_NAME = "bot_database.db"
+
+TEMPORARY_WHITELISTED_GUILD_IDS = []

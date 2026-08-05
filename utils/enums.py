@@ -7,6 +7,8 @@ class ActionType(Enum):
     Timeout = auto()
     TimeoutRemoval = auto()
     ScamKick = auto()
+    Warn = auto()
+    WarnRemove = auto()
 
 class ServerAction(Enum):
     Join = auto()
