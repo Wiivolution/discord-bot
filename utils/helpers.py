@@ -6,7 +6,7 @@ from discord.ext import commands
 import sys
 
 from constants import BOT_DEVELOPERS, MODMAIL_USER_ID, STAFF_ROLE_ID, KILLBOX_DELETE_MESSAGE_SECONDS
-from utils.enums import ActionType, ServerAction, MessageLog
+from utils.enums import ActionType, ServerAction, MessageLog, Restriction
 import utils.database as database
 
 class AppNotBotDeveloper(app_commands.CheckFailure):
@@ -62,6 +62,10 @@ def get_string_by_server_action(serverAction: ServerAction) -> str:
             return "Member Joined"
         case ServerAction.Leave:
             return "Member Left"
+        case ServerAction.Ban:
+            return "Member Banned"
+        case ServerAction.Unban:
+            return "Member Unbanned"
         case ServerAction.KillboxTrigger:
             return "Member Triggered Killbox"
         case _:
@@ -123,11 +127,9 @@ async def handle_honeypot_action(user: discord.User, guild: discord.Guild, reaso
         return
     await guild.ban(user, reason="Triggered honeypot, banning to purge messages", delete_message_seconds=KILLBOX_DELETE_MESSAGE_SECONDS)
     await guild.unban(user, reason="Triggered honeypot, unbanning after purging messages")
-    await post_honeypot_log(user=user, channel=guild.get_channel(log_channel), reason=reason)
+    await post_honeypot_log(user=user, channel=log_channel, reason=reason)
 
-async def post_action_log(interaction: discord.Interaction, action: ActionType, channel: discord.TextChannel, color: discord.Color, author: discord.User = None, reason: str = None, target: discord.User = None):
-    channel = interaction.guild.get_channel(channel)
-
+async def post_action_log(action: ActionType, channel: discord.TextChannel, author: discord.User = None, reason: str = None, target: discord.User = None, color: discord.Color = None):
     embed = discord.Embed(
         title=f"Member {get_string_by_action_type(action)}",
         description=f"Reason: {reason}",
@@ -157,7 +159,7 @@ async def post_member_update_log(channel: discord.Channel, target: discord.User,
 
     await channel.send(embeds=[embed])
 
-async def post_member_role_update(channel: discord.Channel, target: discord.User, updated_role: str, added: bool, note: str = None, color: discord.Color = None):
+async def post_member_role_update(channel: discord.TextChannel, target: discord.User, updated_role: str, added: bool, note: str = None, color: discord.Color = None):
     embed = discord.Embed(
         title=f"Member Role Update",
         description=f"Roles Updated",
@@ -172,8 +174,6 @@ async def post_member_role_update(channel: discord.Channel, target: discord.User
     await channel.send(embeds=[embed])
 
 async def post_server_log(bot: commands.Bot, serverAction: ServerAction, channel: discord.TextChannel, target: discord.User = None, note: str = None, color: discord.Color = None):
-    channel = bot.get_channel(channel)
-
     embed = discord.Embed(
         title=f"{get_string_by_server_action(serverAction)}",
         description=f"Note: {note}",
@@ -187,8 +187,6 @@ async def post_server_log(bot: commands.Bot, serverAction: ServerAction, channel
     await channel.send(embeds=[embed])
 
 async def post_message_log(bot: commands.Bot, messageLog: MessageLog, channel: discord.TextChannel, color: discord.Color, message: discord.Message, new_message: discord.Message = None, note: str = None):
-    channel = bot.get_channel(channel)
-
     embed = discord.Embed(
         title=f"{get_string_by_message_log(messageLog)}",
         description=f"Note: {note}",
@@ -243,3 +241,6 @@ async def does_warn_exist(warn_id: int):
 async def is_guild_invite_whitelisted(guild_id: int):
     result = await database.fetch_one(query="SELECT 1 FROM whitelisted_guilds WHERE guild_id = ? LIMIT 1", parameters=(guild_id,))
     return result is not None
+
+async def add_restriction(user: discord.User, restriction_type: Restriction):
+    print("empty for now")

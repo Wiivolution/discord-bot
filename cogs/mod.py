@@ -58,11 +58,11 @@ class Mod(commands.Cog):
         if role_mentions:
             for role in role_mentions:
                 if role.id == HONEYPOT_ROLE_ID:
-                    await handle_honeypot_action(user=message.author, guild=message.channel.guild, reason="Pinged honeypot role", log_channel=MOD_LOGS_CHANNEL_ID)
+                    await handle_honeypot_action(user=message.author, guild=message.channel.guild, reason="Pinged honeypot role", log_channel=self.bot.mod_logs_channel)
 
         # honeypot/killbox channel:
         if message.channel.id == KILLBOX_CHANNEL_ID:
-            await handle_honeypot_action(user=message.author, guild=message.channel.guild, reason="Sent message in honeypot channel", log_channel=MOD_LOGS_CHANNEL_ID)
+            await handle_honeypot_action(user=message.author, guild=message.channel.guild, reason="Sent message in honeypot channel", log_channel=self.bot.mod_logs_channel)
 
     # todo: warn cog
     @is_staff_app_check()
@@ -97,7 +97,7 @@ class Mod(commands.Cog):
             await handle_warn_automated_action(guild=interaction.guild, user=user, warn_count=warn_count)
         await interaction.followup.send(f"{user.mention} ({user.id}) warned. They have been warned {warn_count} times.")
         warn_id = (await get_latest_user_warning(user.id))[0]
-        await post_action_log(interaction=interaction, target=user, action=ActionType.Warn, channel=MOD_LOGS_CHANNEL_ID, color=discord.Color.orange(), author=interaction.user, reason=f"{reason} (**Warn #{warn_count} | ID {warn_id}**)")
+        await post_action_log(target=user, action=ActionType.Warn, channel=self.bot.mod_logs_channel, color=discord.Color.orange(), author=interaction.user, reason=f"{reason} (**Warn #{warn_count} | ID {warn_id}**)")
 
     @is_staff_app_check()
     @app_commands.guild_only()
@@ -108,7 +108,7 @@ class Mod(commands.Cog):
             raise ValueError(f"Warn {warn_id} does not exist.")
         await database.execute(query="DELETE FROM warnings WHERE warn_id = ?", parameters=(warn_id,))
         await interaction.response.send_message(f"Successfully removed warn {warn_id}!")
-        await post_action_log(interaction=interaction, action=ActionType.WarnRemove, channel=MOD_LOGS_CHANNEL_ID, color=discord.Color.orange(), author=interaction.user, reason=f"{reason}\n(**Warn ID: {warn_id}**)")
+        await post_action_log(action=ActionType.WarnRemove, channel=self.bot.mod_logs_channel, color=discord.Color.orange(), author=interaction.user, reason=f"{reason}\n(**Warn ID: {warn_id}**)")
     
     @app_commands.guild_only()
     @app_commands.describe(user="The user whos warns to check, if not yourself.")
@@ -261,7 +261,7 @@ class Mod(commands.Cog):
             return
         
         await interaction.response.send_message(f"{user} is now gone.")
-        await post_action_log(interaction=interaction, author=interaction.user, target=user, action=ActionType.Kick, channel=MOD_LOGS_CHANNEL_ID, reason=reason, color=discord.Color.red())
+        await post_action_log(author=interaction.user, target=user, action=ActionType.Kick, channel=self.bot.mod_logs_channel, reason=reason, color=discord.Color.red())
 
     @app_commands.default_permissions(kick_members=True)
     @app_commands.guild_only()
@@ -291,7 +291,7 @@ class Mod(commands.Cog):
             return
         
         await interaction.response.send_message(f"{user} is now gone.")
-        await post_action_log(interaction=interaction, author=interaction.user, target=user, action=ActionType.ScamKick, channel=MOD_LOGS_CHANNEL_ID, reason=reason, color=discord.Color.red())
+        await post_action_log(author=interaction.user, target=user, action=ActionType.ScamKick, channel=self.bot.mod_logs_channel, reason=reason, color=discord.Color.red())
 
     @app_commands.default_permissions(ban_members=True)
     @app_commands.guild_only()
@@ -326,7 +326,7 @@ class Mod(commands.Cog):
             return
         
         await interaction.response.send_message(f"{user} is now banned.")
-        await post_action_log(interaction=interaction, author=interaction.user, target=user, action=ActionType.Ban, channel=MOD_LOGS_CHANNEL_ID, reason=reason, color=discord.Color.red())
+        await post_action_log(author=interaction.user, target=user, action=ActionType.Ban, channel=self.bot.mod_logs_channel, reason=reason, color=discord.Color.red())
 
     @app_commands.default_permissions(ban_members=True)
     @app_commands.guild_only()
@@ -345,7 +345,7 @@ class Mod(commands.Cog):
             return
 
         await interaction.response.send_message(f"{user} ({user.id}) is now unbanned.")
-        await post_action_log(interaction=interaction, author=interaction.user, target=user, action=ActionType.Unban, channel=MOD_LOGS_CHANNEL_ID, reason=reason, color=discord.Color(0xFFFFFF))
+        await post_action_log(author=interaction.user, target=user, action=ActionType.Unban, channel=self.bot.mod_logs_channel, reason=reason, color=discord.Color(0xFFFFFF))
 
     @app_commands.default_permissions(moderate_members=True)
     @app_commands.guild_only()
@@ -380,7 +380,7 @@ class Mod(commands.Cog):
             pass # user disabled dms or left
         
         await interaction.response.send_message(f"{member} ({member.id}) has been timed out until {timeout_expiration_str}.")
-        await post_action_log(interaction=interaction, target=member, action=ActionType.Timeout, channel=MOD_LOGS_CHANNEL_ID, reason=f"{reason}\nUntil:{timeout_expiration_str}", color=discord.Color.red(), author=interaction.user)
+        await post_action_log(target=member, action=ActionType.Timeout, channel=self.bot.mod_logs_channel, reason=f"{reason}\nUntil:{timeout_expiration_str}", color=discord.Color.red(), author=interaction.user)
     
     @app_commands.default_permissions(moderate_members=True)
     @app_commands.guild_only()
@@ -389,7 +389,7 @@ class Mod(commands.Cog):
     async def untimeout_command(self, interaction: discord.Interaction, member: discord.Member, reason: str = None):
         await member.timeout(None) # removes the timeout
         await interaction.response.send_message(f"{member} ({member.id}) is no longer timed out.")
-        await post_action_log(interaction=interaction, target=member, action=ActionType.TimeoutRemoval, channel=MOD_LOGS_CHANNEL_ID, reason=f"{reason}", color=discord.Color(0xFFFFFF), author=interaction.user)
+        await post_action_log(target=member, action=ActionType.TimeoutRemoval, channel=self.bot.mod_logs_channel, reason=f"{reason}", color=discord.Color(0xFFFFFF), author=interaction.user)
 
 async def setup(bot):
     await bot.add_cog(Mod(bot))

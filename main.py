@@ -27,6 +27,7 @@ class Bot(commands.Bot):
     async def setup_hook(self):
         self.server_logs_channel = (self.get_channel(SERVER_LOGS_CHANNEL_ID) or await self.fetch_channel(SERVER_LOGS_CHANNEL_ID))
         self.mod_logs_channel = (self.get_channel(MOD_LOGS_CHANNEL_ID) or await self.fetch_channel(MOD_LOGS_CHANNEL_ID))
+        self.message_logs_channel = (self.get_channel(MESSAGE_LOGS_CHANNEL_ID) or await self.fetch_channel(MESSAGE_LOGS_CHANNEL_ID))
 
 bot = Bot(command_prefix=".", intents=intents, allowed_mentions=allowed_mentions, owner_ids=OWNERS)
 
@@ -51,11 +52,11 @@ async def on_ready():
 
 @bot.event
 async def on_member_join(member: discord.Member):
-    await post_server_log(bot=bot, serverAction=ServerAction.Join, channel=SERVER_LOGS_CHANNEL_ID, color=discord.Color.gold(), target=member, note=f"Created: {member.created_at} ({format_dt(member.created_at)}) ({format_dt(member.created_at, style='R')})")
+    await post_server_log(bot=bot, serverAction=ServerAction.Join, channel=bot.server_logs_channel, color=discord.Color.gold(), target=member, note=f"Created: {member.created_at} ({format_dt(member.created_at)}) ({format_dt(member.created_at, style='R')})")
 
 @bot.event
 async def on_member_remove(member: discord.Member):
-    await post_server_log(bot=bot, serverAction=ServerAction.Leave, channel=SERVER_LOGS_CHANNEL_ID, color=discord.Color.gold(), target=member, note=f"Created: {member.created_at} ({format_dt(member.created_at)}) ({format_dt(member.created_at, style='R')})")
+    await post_server_log(bot=bot, serverAction=ServerAction.Leave, channel=bot.server_logs_channel, color=discord.Color.gold(), target=member, note=f"Created: {member.created_at} ({format_dt(member.created_at)}) ({format_dt(member.created_at, style='R')})")
 
 @bot.event
 async def on_message(message: discord.Message):
@@ -65,9 +66,9 @@ async def on_message(message: discord.Message):
 async def on_message_delete(message: discord.Message):
     if isinstance(message.channel, discord.DMChannel):
         return
-    if old_message.author.id == bot.user.id:
+    if message.author.id == bot.user.id:
         return
-    await post_message_log(bot=bot, messageLog=MessageLog.Delete, channel=MESSAGE_LOGS_CHANNEL_ID, color=discord.Color.red(), message=message)
+    await post_message_log(bot=bot, messageLog=MessageLog.Delete, channel=bot.message_logs_channel, color=discord.Color.red(), message=message)
 
 @bot.event
 async def on_message_edit(old_message: discord.Message, new_message: discord.Message):
@@ -77,7 +78,7 @@ async def on_message_edit(old_message: discord.Message, new_message: discord.Mes
         return
     if old_message.content == new_message.content:
         return
-    await post_message_log(bot=bot, messageLog=MessageLog.Edit, channel=MESSAGE_LOGS_CHANNEL_ID, color=discord.Color.blue(), message=old_message, new_message=new_message)
+    await post_message_log(bot=bot, messageLog=MessageLog.Edit, channel=bot.message_logs_channel, color=discord.Color.blue(), message=old_message, new_message=new_message)
 
 @bot.event
 async def on_error(event, *args, **kwargs):

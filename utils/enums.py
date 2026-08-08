@@ -13,8 +13,13 @@ class ActionType(Enum):
 class ServerAction(Enum):
     Join = auto()
     Leave = auto()
+    Ban = auto()
+    Unban = auto()
     KillboxTrigger = auto()
 
 class MessageLog(Enum):
     Delete = auto()
     Edit = auto()
+
+class Restriction(Enum):
+    NoHelp = auto()

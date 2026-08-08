@@ -21,6 +21,16 @@ async def init_database():
                 adder_id INTEGER NOT NULL,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
             )""")
+        # user restrictions table
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS user_restrictions (
+                restriction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                issuer_id INTEGER NOT NULL,
+                reason TEXT,
+                user_id INTEGER NOT NULL,
+                restriction_type INTEGER NOT NULL
+            )""")
         await db.commit()
         print("Successfully initialized database!")
 

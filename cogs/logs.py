@@ -1,25 +1,52 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
+from discord.utils import format_dt
 
-from utils.helpers import post_member_update_log, post_member_role_update
-from constants import SERVER_LOGS_CHANNEL_ID
+from utils.enums import ServerAction, ActionType
+from utils.helpers import post_member_update_log, post_member_role_update, post_server_log, post_action_log
 
 class Logs(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
     @commands.Cog.listener()
+    async def on_audit_log_entry_create(self, entry: discord.AuditLogEntry):
+        if entry.action == discord.AuditLogAction.ban or entry.action == discord.AuditLogAction.kick or entry.action == discord.AuditLogAction.unban:
+            if entry.user.id == self.bot.user.id:
+                return # don't log our bans/kicks done by the bot, the bot already does that
+            target = self.bot.get_user(entry.target.id) or await self.bot.fetch_user(entry.target.id)
+            action = None
+            match (entry.action):
+                case discord.AuditLogAction.kick:
+                    action = ActionType.Kick
+                case discord.AuditLogAction.unban:
+                    action = ActionType.Unban
+                case discord.AuditLogAction.ban:
+                    action = ActionType.Ban
+                case _:
+                    raise ValueError(f"Unknown audit log entry type {entry}")
+            await post_action_log(action=action, channel=self.bot.mod_logs_channel, color=discord.Color.red(), target=target, author=entry.user, reason=entry.reason)
+
+    @commands.Cog.listener()
+    async def on_member_ban(self, guild: discord.Guild, user: discord.User):
+        await post_server_log(bot=self.bot, serverAction=ServerAction.Ban, channel=self.bot.server_logs_channel, target=user)
+
+    @commands.Cog.listener()
+    async def on_member_unban(self, guild: discord.Guild, user: discord.User):
+        await post_server_log(bot=self.bot, serverAction=ServerAction.Unban, channel=self.bot.server_logs_channel, target=user)
+
+    @commands.Cog.listener()
     async def on_member_update(self, old_member: discord.Member, new_member: discord.Member):
         if old_member.accent_color != new_member.accent_color or old_member.accent_colour != new_member.accent_colour:
             await post_member_update_log(channel=self.bot.server_logs_channel, target=old_member, updated_field="Accent Color", old_value=str(old_member.accent_color), new_value=str(new_member.accent_color))
-        if old_member.display_icon != new_member.display_icon:
-            print("display icon changed")
+        #if old_member.display_icon != new_member.display_icon:
+        #    print("display icon changed")
         # currently no need
         #if old_member.display_name != new_member.display_name:
         #    await post_member_update_log(channel=self.bot.server_logs_channel, target=old_member, updated_field="Nickname", old_value=old_member.display_name, new_value=new_member.display_name)
-        #if old_member.pending != new_member.pending:
-        #    print("pending status updated")
+        if old_member.pending != new_member.pending:
+            await post_member_update_log(channel=self.bot.server_logs_channel, target=old_member, updated_field="Pending Verification", old_value=old_member.pending, new_value=new_member.pending)
         #if old_member.guild_avatar != new_member.guild_avatar:
         #    print("guild avatar changed")
         #if old_member.guild_banner != new_member.guild_banner:
@@ -42,8 +69,10 @@ class Logs(commands.Cog):
             if removed:
                 updated_value = [role.name for role in removed]
                 await post_member_role_update(channel=self.bot.server_logs_channel, target=old_member, updated_role=updated_value, added=False)
-        #if old_member.timed_out_until != new_member.timed_out_until:
-        #    print("timeout updated")
+        if old_member.timed_out_until != new_member.timed_out_until:
+            old_timed_out = format_dt(old_member.timed_out_until) if old_member.timed_out_until is not None else old_member.timed_out_until
+            new_timed_out = format_dt(new_member.timed_out_until) if new_member.timed_out_until is not None else new_member.timed_out_until
+            await post_member_update_log(channel=self.bot.server_logs_channel, target=old_member, updated_field="Timed Out Until", old_value=old_timed_out, new_value=new_timed_out)
         #if old_member.top_role != new_member.top_role:
         #    print("top role changed")
 
